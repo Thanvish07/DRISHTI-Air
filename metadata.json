@@ -1,6 +1,6 @@
 {
-  "name": "CPCB Air Quality Ingestion & ADK Agent",
-  "description": "Real-time macro-level AQI data ingestion pipeline and agentic orchestrator for the Central Pollution Control Board (CPCB) India network, powered by Google ADK and Gemini.",
+  "name": "DRISHTI-Air: Distributed Real-time Ingestion, Sensing & Hazard Telemetry Intelligence",
+  "description": "A decentralized, multi-agent environmental intelligence platform that continuously ingests macro-level CAAQMS telemetry and crowdsourced multimodal hazard reports.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
