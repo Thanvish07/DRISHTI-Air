@@ -1,0 +1,7 @@
+{
+  "name": "CPCB Air Quality Ingestion & ADK Agent",
+  "description": "Real-time macro-level AQI data ingestion pipeline and agentic orchestrator for the Central Pollution Control Board (CPCB) India network, powered by Google ADK and Gemini.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+

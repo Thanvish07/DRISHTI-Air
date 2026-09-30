@@ -1,0 +1,22 @@
+@import "tailwindcss";
+
+/* Custom Sleek Scrollbar Styling */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 7px;
+  height: 7px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(71, 85, 105, 0.6);
+  border-radius: 9999px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(56, 189, 248, 0.8);
+}
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(71, 85, 105, 0.6) rgba(15, 23, 42, 0.6);
+}
