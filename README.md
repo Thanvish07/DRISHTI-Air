@@ -7,7 +7,9 @@
 [![React TypeScript](https://img.shields.io/badge/React%2019-TypeScript%20%2B%20Tailwind-sky.svg)](https://vitejs.dev)
 [![License](https://img.shields.io/badge/License-Apache%202.0-orange.svg)](LICENSE)
 
-An enterprise-grade, distributed multi-agent environmental intelligence and forecasting platform built with **Google Agent Development Kit (ADK 2.0 Web)**, the modern **Google GenAI SDK (`@google/genai`)**, and **Google Research TimesFM 2.0 Foundation Models**.
+A Decentralized, distributed multi-agent environmental intelligence and forecasting platform built with **Google Agent Development Kit (ADK 2.0 Web)**, the modern **Google GenAI SDK (`@google/genai`)**, and **Google Research TimesFM 2.0 Foundation Models**.
+
+Live Web-App link: https://drishti-air-distributed-real-time-ingestion-sensi.ai.studio[https://drishti-air-distributed-real-time-ingestion-sensi.ai.studio]
 
 ---
 
