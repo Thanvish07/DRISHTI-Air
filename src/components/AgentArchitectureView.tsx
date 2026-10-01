@@ -28,7 +28,6 @@ import {
   MapPin,
   TrendingUp,
 } from 'lucide-react';
-import { SystemArchitectureDiagram } from './SystemArchitectureDiagram';
 
 interface AgentSpec {
   id: string;
@@ -52,7 +51,7 @@ interface AgentSpec {
 
 export const AgentArchitectureView: React.FC = () => {
   const [selectedAgentId, setSelectedAgentId] = useState<string>('cpcb_ingestion');
-  const [activeSubTab, setActiveSubTab] = useState<'topology' | 'system_architecture' | 'agents' | 'protocols'>('topology');
+  const [activeSubTab, setActiveSubTab] = useState<'topology' | 'agents' | 'protocols'>('topology');
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   // 5 Active Specialized Agents (GRAP agent removed as requested)
@@ -235,7 +234,7 @@ export const AgentArchitectureView: React.FC = () => {
             </div>
 
             <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
-              DRISHTI-Air: Distributed Real-time Ingestion, Sensing &amp; Hazard Telemetry Intelligence
+              DRISHTI-Air: Distributed Real-time Ingestion, Sensing &amp; Hyperlocal Telemetry Intelligence
             </h2>
             <p className="text-xs sm:text-sm text-slate-400 max-w-3xl leading-relaxed">
               Decentralized multi-agent workflow coordinating continuous national ground telemetry ingestion across 169+ CAAQMS stations, Google TimesFM 2.0 zero-shot time-series foundation forecasting, Inverse Distance Weighting (IDW) Bengaluru street interpolation, Gemini Vision multimodal hazard verification, and AeroQuery dynamic visual analytics.
@@ -253,17 +252,6 @@ export const AgentArchitectureView: React.FC = () => {
             >
               <Workflow className="w-4 h-4" />
               <span>Agent Workflow &amp; Topology</span>
-            </button>
-            <button
-              onClick={() => setActiveSubTab('system_architecture')}
-              className={`px-3.5 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
-                activeSubTab === 'system_architecture'
-                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-              <span>System Architecture</span>
             </button>
             <button
               onClick={() => setActiveSubTab('agents')}
@@ -618,9 +606,6 @@ export const AgentArchitectureView: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Sub-View: 4-Tier Agentic AI System Architecture (Matching Uploaded Architecture Diagram) */}
-      {activeSubTab === 'system_architecture' && <SystemArchitectureDiagram />}
 
       {/* Sub-View 2: Agents Directory & Detailed Inspector Panel */}
       {activeSubTab === 'agents' && (

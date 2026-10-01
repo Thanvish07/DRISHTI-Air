@@ -16,21 +16,27 @@ import { AirQualityChatbot } from './components/AirQualityChatbot';
 import { AgentConsole } from './components/AgentConsole';
 import { PythonCodeViewer } from './components/PythonCodeViewer';
 import { AgentArchitectureView } from './components/AgentArchitectureView';
+import { WelcomeView } from './components/WelcomeView';
 import { StationAQI, PipelineMetrics, AgentLogEntry, AgentOrchestrationResult } from './types';
-import { Layers, Radio, Sparkles } from 'lucide-react';
+import { Layers, Radio, Sparkles, Home } from 'lucide-react';
 
 export default function App() {
   const [countdown, setCountdown] = useState<number>(15);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [pollCycle, setPollCycle] = useState<number>(1);
   const [activeTab, setActiveTab] = useState<'dashboard' | 'console' | 'python' | 'workflow'>('dashboard');
-  const [dashboardMapView, setDashboardMapView] = useState<'all_india' | 'bengaluru_citizen'>('all_india');
+  const [dashboardMapView, setDashboardMapView] = useState<'home' | 'all_india' | 'bengaluru_citizen'>('home');
 
   // Filter States
   const [selectedState, setSelectedState] = useState<string>('All');
   const [selectedCity, setSelectedCity] = useState<string>('All');
   const [stationQuery, setStationQuery] = useState<string>('');
   const [categoryFilter, setCategoryFilter] = useState<string>('All');
+
+  // Ensure the page stays at the top whenever the sub-tab or main tab changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+  }, [dashboardMapView, activeTab]);
 
   // Data States
   const [stations, setStations] = useState<StationAQI[]>([]);
@@ -268,12 +274,21 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
         {activeTab === 'dashboard' && (
           <>
-            {/* KPI Cards & Ground Baseline Metrics */}
-            <KpiMetrics metrics={metrics} />
-
-            {/* Map View Switcher (All-India CAAQMS vs Bengaluru Citizen Telemetry) */}
+            {/* Map View Switcher (Home vs All-India CAAQMS vs Bengaluru Citizen Telemetry) */}
             <div className="bg-slate-900 border border-slate-800 p-2.5 rounded-2xl shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div className="flex items-center gap-1.5 p-1 bg-slate-950 rounded-xl border border-slate-800 flex-wrap">
+                <button
+                  onClick={() => setDashboardMapView('home')}
+                  className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
+                    dashboardMapView === 'home'
+                      ? 'bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 text-white shadow-md shadow-emerald-950/40'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Home className="w-4 h-4 text-emerald-200" />
+                  <span>Home</span>
+                </button>
+
                 <button
                   onClick={() => setDashboardMapView('all_india')}
                   className={`flex items-center gap-2 px-3.5 py-2 rounded-lg text-xs font-bold transition cursor-pointer ${
@@ -303,17 +318,32 @@ export default function App() {
               </div>
 
               <div className="text-xs text-slate-400 font-mono hidden md:flex items-center gap-2">
-                {dashboardMapView === 'all_india' ? (
-                  <span>Nationwide CAAQMS network • TimesFM forecasts</span>
-                ) : (
+                {dashboardMapView === 'home' && (
+                  <span>Platform overview • Google tools &amp; data sources • Step-by-step tutorial</span>
+                )}
+                {dashboardMapView === 'all_india' && (
+                  <span>Nationwide CAAQMS network • TimesFM forecasts • AeroQuery AI</span>
+                )}
+                {dashboardMapView === 'bengaluru_citizen' && (
                   <span>Pinpoint any Bengaluru street • Upload photo/video • Verify hazards</span>
                 )}
               </div>
             </div>
 
+            {/* View 0: Home Sub-tab (Platform Overview, Google Tools, Data Sources, Tutorials) */}
+            {dashboardMapView === 'home' && (
+              <WelcomeView
+                onNavigateToMap={(view) => setDashboardMapView(view)}
+                onNavigateToTab={(tab) => setActiveTab(tab)}
+              />
+            )}
+
             {/* View A: All-India CAAQMS Telemetry Map */}
             {dashboardMapView === 'all_india' && (
               <>
+                {/* KPI Cards & Ground Baseline Metrics */}
+                <KpiMetrics metrics={metrics} />
+
                 {/* Interactive Filters Bar */}
                 <FilterBar
                   selectedState={selectedState}
@@ -409,9 +439,9 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-slate-400">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-emerald-400" />
-            <span>Google ADK 2.0 Web Engine & google-genai SDK</span>
-            <span className="text-slate-700">•</span>
-            <span>Central Pollution Control Board (CPCB India) Telemetry Pipeline</span>
+            <span className="font-semibold text-slate-300">
+              DRISHTI-Air: Distributed Real-time Ingestion, Sensing &amp; Hyperlocal Telemetry Intelligence
+            </span>
           </div>
           <div className="flex items-center gap-4 text-slate-400">
             <span>Poll Interval: 15s</span>

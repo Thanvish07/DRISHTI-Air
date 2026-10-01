@@ -1,5 +1,5 @@
 import React from 'react';
-import { Activity, Play, Pause, RefreshCw, Cpu, Layers, Radio, Workflow } from 'lucide-react';
+import { Activity, Play, Pause, RefreshCw, Cpu, Layers, Radio, Workflow, Home } from 'lucide-react';
 
 interface HeaderProps {
   countdown: number;
@@ -10,8 +10,8 @@ interface HeaderProps {
   pollCycle: number;
   activeTab: 'dashboard' | 'console' | 'python' | 'workflow';
   setActiveTab: (tab: 'dashboard' | 'console' | 'python' | 'workflow') => void;
-  dashboardMapView?: 'all_india' | 'bengaluru_citizen';
-  setDashboardMapView?: (view: 'all_india' | 'bengaluru_citizen') => void;
+  dashboardMapView?: 'home' | 'all_india' | 'bengaluru_citizen';
+  setDashboardMapView?: (view: 'home' | 'all_india' | 'bengaluru_citizen') => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -23,7 +23,7 @@ export const Header: React.FC<HeaderProps> = ({
   pollCycle,
   activeTab,
   setActiveTab,
-  dashboardMapView = 'all_india',
+  dashboardMapView = 'home',
   setDashboardMapView,
 }) => {
   const progressPercent = ((15 - countdown) / 15) * 100;
@@ -44,7 +44,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="text-base sm:text-lg font-bold text-white tracking-tight flex items-center gap-2">
-                DRISHTI-Air: Distributed Real-time Ingestion, Sensing &amp; Hazard Telemetry Intelligence
+                DRISHTI-Air: Distributed Real-time Ingestion, Sensing &amp; Hyperlocal Telemetry Intelligence
               </h1>
               <span className="px-2 py-0.5 text-[11px] font-semibold tracking-wide rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
                 ADK 2.0 Multi-Agent Network
@@ -126,6 +126,18 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Quick Map Switcher in Header (when on Dashboard) */}
           {activeTab === 'dashboard' && setDashboardMapView && (
             <div className="hidden sm:flex items-center bg-slate-900 border border-slate-800 p-1 rounded-lg text-xs">
+              <button
+                onClick={() => setDashboardMapView('home')}
+                className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${
+                  dashboardMapView === 'home'
+                    ? 'bg-emerald-500 text-slate-950 font-bold shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title="Home & Platform Overview"
+              >
+                <Home className="w-3.5 h-3.5" />
+                <span>Home</span>
+              </button>
               <button
                 onClick={() => setDashboardMapView('all_india')}
                 className={`px-2.5 py-1 rounded-md font-medium transition flex items-center gap-1.5 ${

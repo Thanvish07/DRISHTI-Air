@@ -1,4 +1,4 @@
-# DRISHTI-Air: Distributed Real-time Ingestion, Sensing & Hazard Telemetry Intelligence
+# DRISHTI-Air: Distributed Real-time Ingestion, Sensing & Hyperlocal Telemetry Intelligence
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://python.org)
 [![Google ADK](https://img.shields.io/badge/Google%20ADK-2.0%20Web-emerald.svg)](https://cloud.google.com)

@@ -1,6 +1,6 @@
 {
-  "name": "DRISHTI-Air: Distributed Real-time Ingestion, Sensing & Hazard Telemetry Intelligence",
-  "description": "A decentralized, multi-agent environmental intelligence platform that continuously ingests macro-level CAAQMS telemetry and crowdsourced multimodal hazard reports.",
+  "name": "DRISHTI-Air: Distributed Real-time Ingestion, Sensing & Hyperlocal Telemetry Intelligence",
+  "description": "Real-time macro-level AQI data ingestion pipeline, multimodal hazard verification, and agentic orchestrator for the National CAAQMS India network, powered by Google ADK and Gemini.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

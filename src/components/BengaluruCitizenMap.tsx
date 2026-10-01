@@ -30,7 +30,11 @@ import {
   Radio,
   Clock,
   Navigation,
-  BarChart3
+  BarChart3,
+  Sun,
+  CloudRain,
+  ExternalLink,
+  Activity,
 } from 'lucide-react';
 
 const BENGALURU_CENTER = { lat: 12.9716, lng: 77.5946 };
@@ -398,10 +402,99 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
   const [isVerifying, setIsVerifying] = useState<boolean>(false);
   const [verificationResult, setVerificationResult] = useState<CitizenReportVerification | null>(null);
   const [activeTab, setActiveTab] = useState<'report_form' | 'verification_result'>('report_form');
+  const [showPinpointPopup, setShowPinpointPopup] = useState<boolean>(true);
 
   // Pinpoint 24-Hour Forecasting States (Uses same forecasting code as main map)
   const [isForecastOpen, setIsForecastOpen] = useState<boolean>(false);
   const [forecastTarget, setForecastTarget] = useState<string>('AQI');
+
+  // Compute effective AQI (reflects verified hazard elevation)
+  const effectiveAqi = useMemo(() => {
+    if (verificationResult?.is_real_hazard && verificationResult?.predicted_aqi) {
+      return verificationResult.predicted_aqi;
+    }
+    return interpolation?.aqi ?? 65;
+  }, [verificationResult, interpolation]);
+
+  // Compute effective AQI category
+  const effectiveCategory = useMemo(() => {
+    if (verificationResult?.is_real_hazard && verificationResult?.predicted_category) {
+      return verificationResult.predicted_category;
+    }
+    return interpolation?.aqi_category ?? 'Satisfactory';
+  }, [verificationResult, interpolation]);
+
+  // Dynamic color tier scale for pinpoint location marker and badges
+  const pinTier = useMemo(() => {
+    const aqi = effectiveAqi;
+    if (aqi <= 50) return { bg: '#10b981', border: '#059669', badgeBg: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40', text: '#10b981', label: 'Good' };
+    if (aqi <= 100) return { bg: '#84cc16', border: '#65a30d', badgeBg: 'bg-lime-500/20 text-lime-300 border-lime-500/40', text: '#84cc16', label: 'Satisfactory' };
+    if (aqi <= 200) return { bg: '#eab308', border: '#ca8a04', badgeBg: 'bg-amber-500/20 text-amber-300 border-amber-500/40', text: '#eab308', label: 'Moderate' };
+    if (aqi <= 300) return { bg: '#f97316', border: '#ea580c', badgeBg: 'bg-orange-500/20 text-orange-300 border-orange-500/40', text: '#f97316', label: 'Poor' };
+    if (aqi <= 400) return { bg: '#ef4444', border: '#dc2626', badgeBg: 'bg-rose-500/20 text-rose-300 border-rose-500/40', text: '#ef4444', label: 'Very Poor' };
+    return { bg: '#7f1d1d', border: '#991b1b', badgeBg: 'bg-red-950/60 text-red-200 border-red-700/60', text: '#dc2626', label: 'Severe' };
+  }, [effectiveAqi]);
+
+  // 6 Criteria Pollutants displaying baseline vs post-incident updated level changes
+  const activePollutants = useMemo(() => {
+    const base = interpolation?.pollutants || { pm25: 45, pm10: 85, no2: 32, so2: 12, co: 0.85, o3: 28 };
+    if (!verificationResult || !verificationResult.pollutant_impacts) {
+      return {
+        pm25: { current: base.pm25, baseline: base.pm25, delta: 0, unit: 'µg/m³', isSurged: false },
+        pm10: { current: base.pm10, baseline: base.pm10, delta: 0, unit: 'µg/m³', isSurged: false },
+        no2: { current: base.no2, baseline: base.no2, delta: 0, unit: 'µg/m³', isSurged: false },
+        so2: { current: base.so2, baseline: base.so2, delta: 0, unit: 'µg/m³', isSurged: false },
+        co: { current: base.co, baseline: base.co, delta: 0, unit: 'mg/m³', isSurged: false },
+        o3: { current: base.o3, baseline: base.o3, delta: 0, unit: 'µg/m³', isSurged: false },
+      };
+    }
+
+    const impacts = verificationResult.pollutant_impacts;
+    return {
+      pm25: {
+        current: impacts.pm25?.predicted ?? base.pm25,
+        baseline: impacts.pm25?.baseline ?? base.pm25,
+        delta: impacts.pm25?.delta ?? 0,
+        unit: impacts.pm25?.unit || 'µg/m³',
+        isSurged: (impacts.pm25?.delta ?? 0) > 0,
+      },
+      pm10: {
+        current: impacts.pm10?.predicted ?? base.pm10,
+        baseline: impacts.pm10?.baseline ?? base.pm10,
+        delta: impacts.pm10?.delta ?? 0,
+        unit: impacts.pm10?.unit || 'µg/m³',
+        isSurged: (impacts.pm10?.delta ?? 0) > 0,
+      },
+      no2: {
+        current: impacts.no2?.predicted ?? base.no2,
+        baseline: impacts.no2?.baseline ?? base.no2,
+        delta: impacts.no2?.delta ?? 0,
+        unit: impacts.no2?.unit || 'µg/m³',
+        isSurged: (impacts.no2?.delta ?? 0) > 0,
+      },
+      so2: {
+        current: impacts.so2?.predicted ?? base.so2,
+        baseline: impacts.so2?.baseline ?? base.so2,
+        delta: impacts.so2?.delta ?? 0,
+        unit: impacts.so2?.unit || 'µg/m³',
+        isSurged: (impacts.so2?.delta ?? 0) > 0,
+      },
+      co: {
+        current: impacts.co?.predicted ?? base.co,
+        baseline: impacts.co?.baseline ?? base.co,
+        delta: impacts.co?.delta ?? 0,
+        unit: impacts.co?.unit || 'mg/m³',
+        isSurged: (impacts.co?.delta ?? 0) > 0,
+      },
+      o3: {
+        current: impacts.o3?.predicted ?? base.o3,
+        baseline: impacts.o3?.baseline ?? base.o3,
+        delta: impacts.o3?.delta ?? 0,
+        unit: impacts.o3?.unit || 'µg/m³',
+        isSurged: (impacts.o3?.delta ?? 0) > 0,
+      },
+    };
+  }, [interpolation, verificationResult]);
 
   // Convert interpolated pinpoint location into StationAQI object for ForecastModal
   const pinpointStationAsAQI: StationAQI | null = useMemo(() => {
@@ -417,18 +510,18 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
       portal_link: 'https://airquality.cpcb.gov.in/ccr/#/all-india-aqi-portal',
       lat: pinLat,
       lng: pinLng,
-      aqi: interpolation.aqi,
-      aqi_category: interpolation.aqi_category,
-      category_color: interpolation.category_color,
-      category_bg: interpolation.category_bg,
+      aqi: effectiveAqi,
+      aqi_category: effectiveCategory as any,
+      category_color: pinTier.bg,
+      category_bg: `${pinTier.bg}22`,
       dominant_pollutant: interpolation.dominant_pollutant,
       sub_indices: interpolation.sub_indices,
-      pm25: interpolation.pollutants.pm25,
-      pm10: interpolation.pollutants.pm10,
-      no2: interpolation.pollutants.no2,
-      so2: interpolation.pollutants.so2,
-      co: interpolation.pollutants.co,
-      o3: interpolation.pollutants.o3,
+      pm25: activePollutants.pm25.current,
+      pm10: activePollutants.pm10.current,
+      no2: activePollutants.no2.current,
+      so2: activePollutants.so2.current,
+      co: activePollutants.co.current,
+      o3: activePollutants.o3.current,
       temperature_c: interpolation.weather.temperature_c,
       relative_humidity_pct: interpolation.weather.relative_humidity_pct,
       wind_speed_mps: interpolation.weather.wind_speed_mps,
@@ -438,10 +531,10 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
       barometric_pressure_hpa: interpolation.weather.barometric_pressure_hpa,
       rainfall_mm: interpolation.weather.rainfall_mm,
       aerosol_optical_depth: interpolation.weather.aerosol_optical_depth,
-      status: 'Live Pinpoint Telemetry',
+      status: verificationResult?.is_real_hazard ? 'Post-Incident Elevated Telemetry' : 'Live Pinpoint Telemetry',
       last_updated: new Date().toISOString(),
     };
-  }, [interpolation, pinLat, pinLng, streetAddress]);
+  }, [interpolation, pinLat, pinLng, streetAddress, effectiveAqi, effectiveCategory, pinTier, activePollutants, verificationResult]);
 
   const apiKey = (import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string) || '';
 
@@ -483,6 +576,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
       setPinLng(lng);
       setVerificationResult(null); // Reset verification on new pinpoint
       setActiveTab('report_form');
+      setShowPinpointPopup(true);
       setIsGeocoding(true);
 
       if (window.google && window.google.maps) {
@@ -821,20 +915,40 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                   {/* Click Listener to drop pin anywhere in Bengaluru */}
                   <MapClickListener onMapClick={handleMapPinpoint} />
 
-                  {/* Pinpoint User Location Beacon */}
+                  {/* Pinpoint User Location Beacon with dynamic AQI Tier color and floating badge */}
                   <AdvancedMarker
                     position={{ lat: pinLat, lng: pinLng }}
                     draggable={true}
+                    onClick={() => setShowPinpointPopup((prev) => !prev)}
                     onDragEnd={(e) => {
                       if (e.latLng) {
                         handleMapPinpoint(e.latLng.lat(), e.latLng.lng());
                       }
                     }}
                   >
-                    <div className="relative flex items-center justify-center cursor-pointer group">
-                      <div className="w-10 h-10 rounded-full bg-rose-500/30 animate-ping absolute" />
-                      <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-rose-600 to-amber-500 border-2 border-white shadow-xl flex items-center justify-center text-white z-10">
-                        <MapPin className="w-4 h-4" />
+                    <div className="relative flex flex-col items-center justify-center cursor-pointer group">
+                      {/* Floating AQI Badge pill right above the pin */}
+                      <div
+                        className="mb-1 px-3 py-1 rounded-full text-xs font-black font-mono shadow-2xl border-2 border-white text-white whitespace-nowrap animate-bounce flex items-center gap-1.5 z-20"
+                        style={{ backgroundColor: pinTier.bg }}
+                        title={`Pinpointed AQI: ${effectiveAqi} (${effectiveCategory}) • Click to toggle telemetry popup`}
+                      >
+                        <span className="w-2 h-2 rounded-full bg-white animate-ping" />
+                        <span>AQI {effectiveAqi} • {effectiveCategory}</span>
+                        {verificationResult?.is_real_hazard && <span className="text-xs">🔥</span>}
+                      </div>
+
+                      <div className="relative flex items-center justify-center">
+                        <div
+                          className="w-12 h-12 rounded-full animate-ping absolute opacity-60"
+                          style={{ backgroundColor: pinTier.bg }}
+                        />
+                        <div
+                          className="w-9 h-9 rounded-full border-2 border-white shadow-2xl flex items-center justify-center text-white z-10 transition-transform group-hover:scale-125"
+                          style={{ backgroundColor: pinTier.bg }}
+                        >
+                          <MapPin className="w-5 h-5 text-white drop-shadow" />
+                        </div>
                       </div>
                     </div>
                   </AdvancedMarker>
@@ -874,227 +988,293 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                 </Map>
               </APIProvider>
 
-              {/* Map Floating Helper HUD */}
-              <div className="absolute bottom-3 left-3 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-xl flex items-center gap-3 z-10">
+              {/* CPCB NAQI Tier Scale at Bottom-Left (matching main map) */}
+              <div className="absolute bottom-3 left-3 z-10 bg-slate-950/90 backdrop-blur-md p-2.5 rounded-xl border border-slate-800/90 shadow-2xl text-[11px] flex flex-col gap-1.5 max-w-[260px] pointer-events-auto">
+                <div className="flex items-center justify-between text-slate-300 font-semibold border-b border-slate-800/70 pb-1">
+                  <span>CPCB NAQI Tier Scale</span>
+                  <span className="text-[10px] text-slate-500 font-normal">Live Ground Scale</span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block shadow-sm" />
+                    <span className="text-slate-400">0 - 50 Good</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-lime-500 inline-block shadow-sm" />
+                    <span className="text-slate-400">51 - 100 Satisfactory</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block shadow-sm" />
+                    <span className="text-slate-400">101 - 200 Moderate</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-orange-500 inline-block shadow-sm" />
+                    <span className="text-slate-400">201 - 300 Poor</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-500 inline-block shadow-sm" />
+                    <span className="text-slate-400">301 - 400 Very Poor</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-red-950 inline-block border border-red-500 shadow-sm" />
+                    <span className="text-slate-400">401 - 500 Severe</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Map Floating Helper HUD at Bottom-Right */}
+              <div className="absolute bottom-3 right-3 bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-xl flex items-center gap-2.5 z-10 hidden sm:flex pointer-events-auto">
                 <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-pulse" />
-                  <span>Pinpointed Incident Site</span>
+                  <span className="w-2.5 h-2.5 rounded-full animate-pulse" style={{ backgroundColor: pinTier.bg }} />
+                  <span>Pinpoint ({effectiveCategory})</span>
                 </div>
                 <span className="text-slate-700">•</span>
                 <div className="flex items-center gap-1.5">
                   <span className="w-2.5 h-2.5 rounded-full bg-emerald-500" />
-                  <span>Nearby CAAQMS Station</span>
+                  <span>CAAQMS Sensor</span>
                 </div>
-                <span className="text-slate-700 hidden sm:inline">•</span>
-                <span className="text-slate-400 hidden sm:inline">Click any street to move pin</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Interpolated Ground Baseline Telemetry Strip */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div>
-                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
-                  <Radio className="w-3.5 h-3.5" />
-                  Ground Telemetry Baseline at Pinpoint
-                </span>
-                <h4 className="text-sm font-bold text-white mt-0.5">
-                  {interpolation?.interpolation_method === 'multi_station_average'
-                    ? `Multi-Station Spatial Average (${interpolation.nearby_stations.length} CAAQMS Stations within 5.5 km)`
-                    : `Single Nearest CAAQMS Station (${interpolation?.nearby_stations[0]?.station_name || 'Ground Sensor'})`}
-                </h4>
+                <span className="text-slate-700">•</span>
+                <span className="text-slate-400">Click street to move pin</span>
               </div>
 
-              {interpolation && (
-                <div className="flex items-center gap-2">
-                  <span
-                    className="px-2.5 py-1 rounded-lg text-xs font-black font-mono shadow"
-                    style={{ backgroundColor: interpolation.category_color + '33', color: interpolation.category_color }}
-                  >
-                    AQI {interpolation.aqi} • {interpolation.aqi_category}
-                  </span>
+              {/* Pinpoint Telemetry & Weather Popup Overlay (like main map) */}
+              {showPinpointPopup && interpolation && (
+                <div className="absolute top-3 right-3 z-20 w-[350px] max-w-[calc(100%-24px)] bg-slate-950/95 backdrop-blur-md border border-slate-700/80 rounded-2xl shadow-2xl p-3.5 flex flex-col gap-2.5 pointer-events-auto max-h-[510px] overflow-y-auto scrollbar-thin text-xs text-slate-200">
+                  {/* Top Location & Close Bar */}
+                  <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-1.5">
+                        <MapPin className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                        <h4 className="font-bold text-white text-xs truncate" title={streetAddress}>
+                          {streetAddress}
+                        </h4>
+                      </div>
+                      <div className="text-[10px] font-mono text-slate-400 mt-0.5">
+                        Lat: {pinLat.toFixed(4)}, Lng: {pinLng.toFixed(4)} • Bengaluru
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1 shrink-0">
+                      <div
+                        className="px-2 py-0.5 rounded-lg text-right border"
+                        style={{
+                          backgroundColor: `${pinTier.bg}20`,
+                          borderColor: pinTier.bg,
+                        }}
+                      >
+                        <span className="text-sm font-black font-mono block leading-tight" style={{ color: pinTier.bg }}>
+                          {effectiveAqi}
+                        </span>
+                        <span className="text-[8px] uppercase font-bold text-slate-300 block">
+                          {effectiveCategory}
+                        </span>
+                      </div>
+                      <button
+                        onClick={() => setShowPinpointPopup(false)}
+                        className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition cursor-pointer"
+                        title="Dismiss popup"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Incident Alert Banner (if verified) */}
+                  {verificationResult && (
+                    <div
+                      className={`p-2 rounded-xl border text-[11px] flex items-center justify-between gap-2 ${
+                        verificationResult.is_real_hazard
+                          ? 'bg-rose-950/50 border-rose-800/60 text-rose-200'
+                          : 'bg-emerald-950/50 border-emerald-800/60 text-emerald-200'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        {verificationResult.is_real_hazard ? (
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                        ) : (
+                          <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        )}
+                        <span className="font-bold truncate">
+                          {verificationResult.is_real_hazard ? 'Real Hazard Verified' : 'Safe / Non-Hazard'}
+                        </span>
+                      </div>
+                      <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-black/40 shrink-0">
+                        {verificationResult.is_real_hazard
+                          ? `AQI: ${interpolation.aqi} ➔ ${effectiveAqi}`
+                          : 'Baseline Intact'}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* 6 Criteria Pollutants Grid */}
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Activity className="w-3 h-3 text-cyan-400" />
+                        Criteria Pollutants (Live Telemetry)
+                      </span>
+                      {verificationResult?.is_real_hazard && (
+                        <span className="text-[9px] text-rose-400 font-bold">Surge Active</span>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-3 gap-1.5 text-center font-mono">
+                      {/* PM2.5 */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.pm25.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">PM2.5</div>
+                        <div className={`text-xs font-black ${activePollutants.pm25.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.pm25.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.pm25.isSurged ? `+${activePollutants.pm25.delta}` : 'µg/m³'}
+                        </div>
+                      </div>
+
+                      {/* PM10 */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.pm10.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">PM10</div>
+                        <div className={`text-xs font-black ${activePollutants.pm10.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.pm10.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.pm10.isSurged ? `+${activePollutants.pm10.delta}` : 'µg/m³'}
+                        </div>
+                      </div>
+
+                      {/* NO2 */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.no2.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">NO2</div>
+                        <div className={`text-xs font-black ${activePollutants.no2.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.no2.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.no2.isSurged ? `+${activePollutants.no2.delta}` : 'µg/m³'}
+                        </div>
+                      </div>
+
+                      {/* SO2 */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.so2.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">SO2</div>
+                        <div className={`text-xs font-black ${activePollutants.so2.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.so2.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.so2.isSurged ? `+${activePollutants.so2.delta}` : 'µg/m³'}
+                        </div>
+                      </div>
+
+                      {/* CO */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.co.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">CO</div>
+                        <div className={`text-xs font-black ${activePollutants.co.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.co.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.co.isSurged ? `+${activePollutants.co.delta}` : 'mg/m³'}
+                        </div>
+                      </div>
+
+                      {/* O3 */}
+                      <div className={`p-1.5 rounded-lg border ${activePollutants.o3.isSurged ? 'bg-rose-950/30 border-rose-700/60' : 'bg-slate-900 border-slate-800'}`}>
+                        <div className="text-[9px] text-slate-400">O3</div>
+                        <div className={`text-xs font-black ${activePollutants.o3.isSurged ? 'text-rose-400' : 'text-white'}`}>
+                          {activePollutants.o3.current}
+                        </div>
+                        <div className="text-[8px] text-slate-500">
+                          {activePollutants.o3.isSurged ? `+${activePollutants.o3.delta}` : 'µg/m³'}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* 8 Meteorological Variables Grid */}
+                  <div>
+                    <div className="text-[10px] font-bold text-sky-400 uppercase tracking-wider mb-1.5 flex items-center justify-between">
+                      <span className="flex items-center gap-1">
+                        <Thermometer className="w-3 h-3 text-sky-400" />
+                        8 Meteorological Variables
+                      </span>
+                      <span className="text-[9px] text-slate-500 font-mono">CAAQMS / IMD</span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Thermometer className="w-3 h-3 text-amber-400" /> Temp:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.temperature_c}°C</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Droplets className="w-3 h-3 text-blue-400" /> Humidity:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.relative_humidity_pct}%</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Wind className="w-3 h-3 text-teal-400" /> Wind:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.wind_speed_mps} m/s</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Compass className="w-3 h-3 text-indigo-400" /> Wind Dir:
+                        </span>
+                        <span className="font-bold text-white font-mono">
+                          {interpolation.weather.wind_direction_cardinal} ({interpolation.weather.wind_direction_deg}°)
+                        </span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Gauge className="w-3 h-3 text-slate-400" /> Pressure:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.barometric_pressure_hpa} hPa</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Sun className="w-3 h-3 text-amber-400" /> Solar:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.solar_radiation_wm2} W/m²</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <CloudRain className="w-3 h-3 text-cyan-400" /> Rain:
+                        </span>
+                        <span className="font-bold text-white font-mono">{interpolation.weather.rainfall_mm} mm</span>
+                      </div>
+                      <div className="bg-slate-900/90 border border-slate-800 p-1.5 rounded-lg flex items-center justify-between">
+                        <span className="text-slate-400 flex items-center gap-1">
+                          <Eye className="w-3 h-3 text-purple-400" /> AOD:
+                        </span>
+                        <span className="font-bold text-purple-300 font-mono">{interpolation.weather.aerosol_optical_depth}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Action Button: 24h AI Forecast for Pinpoint */}
                   <button
                     onClick={() => {
                       setForecastTarget('AQI');
                       setIsForecastOpen(true);
                     }}
-                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-cyan-500/15 hover:bg-cyan-500/25 text-cyan-300 text-xs font-bold border border-cyan-500/30 shadow transition cursor-pointer"
-                    title="Launch 24-Hour Foundation Model Forecast"
+                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 text-white text-xs font-bold shadow-md shadow-teal-950/40 transition cursor-pointer mt-1"
                   >
-                    <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
-                    <span>Forecast</span>
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>24h TimesFM AI Forecast for Pinpoint</span>
+                    <Sparkles className="w-3 h-3 text-cyan-200 ml-auto" />
                   </button>
                 </div>
               )}
             </div>
-
-            {/* Contributing Stations Badges */}
-            {interpolation && interpolation.nearby_stations && (
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <span className="text-[11px] text-slate-400 font-medium">Contributing Stations:</span>
-                {interpolation.nearby_stations.map((st) => (
-                  <span
-                    key={st.station_id}
-                    className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 text-[10px] font-mono border border-slate-700 flex items-center gap-1"
-                  >
-                    <span>{st.station_name.split(',')[0]}</span>
-                    <span className="text-sky-400 font-bold">({st.distance_km} km)</span>
-                  </span>
-                ))}
-              </div>
-            )}
-
-            {/* 6 Pollutants baseline strip with 1-click forecast targeting */}
-            {interpolation ? (
-              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 pt-1 font-mono text-center">
-                <div
-                  onClick={() => {
-                    setForecastTarget('PM2.5');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast PM2.5 for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">PM2.5</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.pm25}</div>
-                  <div className="text-[9px] text-slate-500">µg/m³</div>
-                </div>
-                <div
-                  onClick={() => {
-                    setForecastTarget('PM10');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast PM10 for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">PM10</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.pm10}</div>
-                  <div className="text-[9px] text-slate-500">µg/m³</div>
-                </div>
-                <div
-                  onClick={() => {
-                    setForecastTarget('NO2');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast NO2 for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">NO2</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.no2}</div>
-                  <div className="text-[9px] text-slate-500">µg/m³</div>
-                </div>
-                <div
-                  onClick={() => {
-                    setForecastTarget('SO2');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast SO2 for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">SO2</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.so2}</div>
-                  <div className="text-[9px] text-slate-500">µg/m³</div>
-                </div>
-                <div
-                  onClick={() => {
-                    setForecastTarget('CO');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast CO for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">CO</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.co}</div>
-                  <div className="text-[9px] text-slate-500">mg/m³</div>
-                </div>
-                <div
-                  onClick={() => {
-                    setForecastTarget('O3');
-                    setIsForecastOpen(true);
-                  }}
-                  className="bg-slate-950 p-2 rounded-xl border border-slate-800 hover:border-cyan-500/60 hover:bg-slate-900/80 transition cursor-pointer group"
-                  title="Click to forecast O3 for this pinpoint"
-                >
-                  <div className="text-[10px] text-slate-400 group-hover:text-cyan-300 transition-colors">O3</div>
-                  <div className="text-sm font-bold text-white group-hover:text-cyan-300 transition-colors">{interpolation.pollutants.o3}</div>
-                  <div className="text-[9px] text-slate-500">µg/m³</div>
-                </div>
-              </div>
-            ) : (
-              <div className="text-xs text-slate-500 py-3 text-center">Loading ground station interpolation...</div>
-            )}
-
-            {/* Weather Parameters Strip */}
-            {interpolation && (
-              <div className="flex items-center justify-between text-xs text-slate-400 pt-2 border-t border-slate-800/80 flex-wrap gap-3">
-                <div className="flex items-center gap-1.5">
-                  <Wind className="w-3.5 h-3.5 text-sky-400" />
-                  <span>
-                    Wind: <strong className="text-white">{interpolation.weather.wind_speed_mps} m/s</strong> from{' '}
-                    <strong className="text-sky-300">{interpolation.weather.wind_direction_cardinal} ({interpolation.weather.wind_direction_deg}°)</strong>
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Thermometer className="w-3.5 h-3.5 text-amber-400" />
-                  <span>Temp: <strong className="text-white">{interpolation.weather.temperature_c}°C</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Droplets className="w-3.5 h-3.5 text-teal-400" />
-                  <span>Humidity: <strong className="text-white">{interpolation.weather.relative_humidity_pct}%</strong></span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Gauge className="w-3.5 h-3.5 text-indigo-400" />
-                  <span>Pressure: <strong className="text-white">{interpolation.weather.barometric_pressure_hpa} hPa</strong></span>
-                </div>
-              </div>
-            )}
           </div>
 
-          {/* 24-Hour Forecast Action Block for Pinpointed Location (below Ground telemetry baseline block) */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row items-center justify-between gap-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-teal-950/40 shrink-0">
-                <TrendingUp className="w-5 h-5" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h4 className="text-sm font-bold text-white">
-                    24-Hour Telemetry Forecast (Google TimesFM)
-                  </h4>
-                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">
-                    Foundation Model
-                  </span>
-                </div>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  Predict NAQI &amp; 6 criteria pollutants for this pinpoint conditioned on meteorological covariates (168h context, 24h horizon).
-                </p>
-              </div>
-            </div>
-
-            <button
-              onClick={() => {
-                setForecastTarget('AQI');
-                setIsForecastOpen(true);
-              }}
-              disabled={!interpolation || isLoadingInterpolation}
-              className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-lg shadow-teal-950/50 flex items-center justify-center gap-2 transition shrink-0 cursor-pointer"
-            >
-              <TrendingUp className="w-4 h-4" />
-              <span>Forecast Pinpoint Location</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Right Column: Citizen Report Submission & Multimodal Verification Agent (5 cols) */}
-        <div className="lg:col-span-5 flex flex-col h-full min-h-0">
-          {/* Tabs: Report Form vs Verification Analysis */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex-1 flex flex-col min-h-0 h-full">
-            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+          {/* Citizen Report Submission & Multimodal Verification Agent (Moved below Map on Left Side) */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl flex flex-col space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 flex-wrap gap-2">
               <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
                 <button
                   onClick={() => setActiveTab('report_form')}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
                     activeTab === 'report_form'
                       ? 'bg-slate-800 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
@@ -1105,7 +1285,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                 <button
                   onClick={() => setActiveTab('verification_result')}
                   disabled={!verificationResult}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 cursor-pointer ${
                     activeTab === 'verification_result'
                       ? 'bg-slate-800 text-cyan-300 shadow-sm'
                       : 'text-slate-500 hover:text-slate-300 disabled:opacity-40'
@@ -1118,20 +1298,21 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
 
               {verificationResult && (
                 <span
-                  className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                  className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide border flex items-center gap-1.5 ${
                     verificationResult.is_real_hazard
-                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
-                      : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40 shadow-sm shadow-rose-950/40'
+                      : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40'
                   }`}
                 >
-                  {verificationResult.is_real_hazard ? 'Hazard Verified' : 'False Alarm'}
+                  <span className={`w-1.5 h-1.5 rounded-full ${verificationResult.is_real_hazard ? 'bg-rose-400 animate-ping' : 'bg-emerald-400'}`} />
+                  <span>{verificationResult.is_real_hazard ? 'Hazard Verified (+Surge)' : 'False Alarm (Normal)'}</span>
                 </span>
               )}
             </div>
 
             {/* TAB 1: Report Submission Form */}
             {activeTab === 'report_form' && (
-              <div className="space-y-4 flex-1 flex flex-col min-h-0 overflow-y-auto scrollbar-thin pr-1">
+              <div className="space-y-4">
                 {/* Sample Incident Presets (1-Click Test) */}
                 <div>
                   <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
@@ -1143,7 +1324,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                       <button
                         key={sample.id}
                         onClick={() => handleSelectSampleReport(sample)}
-                        className="text-left p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group"
+                        className="text-left p-2 rounded-xl bg-slate-950 hover:bg-slate-800/80 border border-slate-800 hover:border-slate-700 transition group cursor-pointer"
                       >
                         <div className="flex items-center justify-between mb-1">
                           <span className="text-[11px] font-bold text-white group-hover:text-cyan-300">
@@ -1245,7 +1426,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                 </div>
 
                 {/* Run Verification Button */}
-                <div className="mt-auto pt-2">
+                <div className="pt-1">
                   <button
                     onClick={handleRunVerification}
                     disabled={isVerifying || !userDescription.trim()}
@@ -1269,7 +1450,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
 
             {/* TAB 2: Multimodal Verification & Dispersion Results */}
             {activeTab === 'verification_result' && verificationResult && (
-              <div className="flex-1 min-h-0 overflow-y-auto scrollbar-thin pr-1.5 space-y-4 text-xs">
+              <div className="space-y-4 text-xs">
                 {/* Top Status Card */}
                 <div
                   className={`p-3.5 rounded-xl border ${
@@ -1317,7 +1498,7 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                   </div>
 
                   <div className="border border-slate-800 rounded-xl overflow-hidden bg-slate-950 flex flex-col shadow-inner">
-                    <div className="overflow-x-auto overflow-y-auto max-h-[380px] scrollbar-thin">
+                    <div className="overflow-x-auto overflow-y-auto max-h-[340px] scrollbar-thin">
                       <table className="w-full text-left font-mono text-xs">
                         <thead className="bg-slate-900 border-b border-slate-800 text-slate-400 sticky top-0 z-10 shadow-sm">
                           <tr>
@@ -1493,12 +1674,452 @@ export const BengaluruCitizenMap: React.FC<BengaluruCitizenMapProps> = ({ onBack
                 {/* Back to Form Button */}
                 <button
                   onClick={() => setActiveTab('report_form')}
-                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs"
+                  className="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold transition text-xs cursor-pointer"
                 >
                   Submit Another Citizen Observation
                 </button>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Right Column: Ground Telemetry Baseline at Pinpoint Block (5 cols) */}
+        <div className="lg:col-span-5 flex flex-col gap-4">
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-4">
+            {/* Header */}
+            <div className="flex items-start justify-between gap-2 border-b border-slate-800/80 pb-3">
+              <div>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-sky-400 flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5" />
+                  Ground Telemetry Baseline at Pinpoint
+                </span>
+                <h4 className="text-sm font-bold text-white mt-1">
+                  {interpolation?.interpolation_method === 'multi_station_average'
+                    ? `Spatial Interpolation (${interpolation.nearby_stations.length} CAAQMS Stations)`
+                    : `Single Nearest CAAQMS (${interpolation?.nearby_stations[0]?.station_name || 'Ground Sensor'})`}
+                </h4>
+                <div className="text-[11px] text-slate-400 font-mono mt-0.5">
+                  Lat: {pinLat.toFixed(4)}, Lng: {pinLng.toFixed(4)}
+                </div>
+              </div>
+
+              {/* Recenter / Pinpoint indicator */}
+              <div className="flex items-center gap-1 text-[11px] font-mono text-slate-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800 shrink-0">
+                <MapPin className="w-3 h-3 text-rose-500" />
+                <span className="truncate max-w-[130px]" title={streetAddress}>{streetAddress.split(',')[0]}</span>
+              </div>
+            </div>
+
+            {/* Highlighted AQI of the Pinpointed Place (Hero Display) */}
+            <div
+              className="p-3.5 rounded-xl border relative overflow-hidden transition-all shadow-xl"
+              style={{
+                backgroundColor: `${pinTier.bg}12`,
+                borderColor: `${pinTier.bg}50`,
+              }}
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1 flex items-center gap-1">
+                    <Activity className="w-3.5 h-3.5" style={{ color: pinTier.bg }} />
+                    <span>Highlighted Pinpoint AQI</span>
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <span
+                      className="text-4xl sm:text-5xl font-black font-mono tracking-tight drop-shadow"
+                      style={{ color: pinTier.bg }}
+                    >
+                      {effectiveAqi}
+                    </span>
+                    <span className="text-xs text-slate-400 font-mono">/ 500 NAQI</span>
+                  </div>
+                </div>
+
+                <div className="text-right space-y-1">
+                  <span
+                    className="inline-block px-3 py-1 rounded-full text-xs font-black uppercase tracking-wide border shadow-md"
+                    style={{
+                      backgroundColor: `${pinTier.bg}25`,
+                      color: pinTier.bg,
+                      borderColor: pinTier.bg,
+                    }}
+                  >
+                    {effectiveCategory}
+                  </span>
+                  <div className="text-[10px] font-mono text-slate-400">
+                    Dominant: <strong className="text-white">{interpolation?.dominant_pollutant || 'PM2.5'}</strong>
+                  </div>
+                </div>
+              </div>
+
+              {/* Elevated AQI Warning Banner if Hazard Verified */}
+              {verificationResult?.is_real_hazard && (
+                <div className="mt-2.5 pt-2 border-t border-rose-500/30 flex items-center justify-between text-xs text-rose-300 font-medium">
+                  <div className="flex items-center gap-1.5 truncate">
+                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0 animate-pulse" />
+                    <span className="truncate">Surge Active: Base AQI {interpolation?.aqi} escalated to {effectiveAqi} (+{effectiveAqi - (interpolation?.aqi || 0)})</span>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-200 text-[10px] font-mono font-bold shrink-0">
+                    Post-Report Level
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Contributing Stations Badges */}
+            {interpolation && interpolation.nearby_stations && (
+              <div className="space-y-1.5">
+                <span className="text-[11px] text-slate-400 font-medium block">Contributing Ground CAAQMS Stations:</span>
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {interpolation.nearby_stations.map((st) => (
+                    <span
+                      key={st.station_id}
+                      className="px-2 py-0.5 rounded-md bg-slate-950 text-slate-300 text-[10px] font-mono border border-slate-800 flex items-center gap-1 hover:border-slate-700 transition"
+                    >
+                      <Radio className="w-2.5 h-2.5 text-emerald-400" />
+                      <span>{st.station_name.split(',')[0]}</span>
+                      <span className="text-sky-400 font-bold">({st.distance_km} km)</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 6 Criteria Pollutants Display (Showing Updated Pollutant Levels Change!) */}
+            <div className="space-y-2 pt-1 border-t border-slate-800/80">
+              <div className="flex items-center justify-between text-xs font-semibold uppercase tracking-wider text-slate-400">
+                <span className="flex items-center gap-1.5">
+                  <Activity className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Pinpointed Location Pollutant Levels</span>
+                </span>
+                {verificationResult?.is_real_hazard ? (
+                  <span className="text-[10px] text-rose-400 font-mono font-bold flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping" />
+                    Updated with Verified Report
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-500 font-mono">Live Ground Sensors</span>
+                )}
+              </div>
+
+              {/* 6 Pollutants Cards Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono">
+                {/* PM2.5 */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('PM2.5');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.pm25.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast PM2.5 for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">PM2.5</span>
+                    {activePollutants.pm25.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.pm25.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">µg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.pm25.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.pm25.current}
+                    </span>
+                    {activePollutants.pm25.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.pm25.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.pm25.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+
+                {/* PM10 */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('PM10');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.pm10.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast PM10 for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">PM10</span>
+                    {activePollutants.pm10.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.pm10.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">µg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.pm10.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.pm10.current}
+                    </span>
+                    {activePollutants.pm10.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.pm10.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.pm10.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+
+                {/* NO2 */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('NO2');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.no2.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast NO2 for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">NO2</span>
+                    {activePollutants.no2.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.no2.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">µg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.no2.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.no2.current}
+                    </span>
+                    {activePollutants.no2.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.no2.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.no2.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+
+                {/* SO2 */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('SO2');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.so2.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast SO2 for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">SO2</span>
+                    {activePollutants.so2.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.so2.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">µg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.so2.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.so2.current}
+                    </span>
+                    {activePollutants.so2.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.so2.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.so2.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+
+                {/* CO */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('CO');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.co.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast CO for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">CO</span>
+                    {activePollutants.co.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.co.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">mg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.co.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.co.current}
+                    </span>
+                    {activePollutants.co.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.co.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.co.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+
+                {/* O3 */}
+                <div
+                  onClick={() => {
+                    setForecastTarget('O3');
+                    setIsForecastOpen(true);
+                  }}
+                  className={`p-2.5 rounded-xl border transition cursor-pointer group ${
+                    activePollutants.o3.isSurged
+                      ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/50'
+                      : 'bg-slate-950 border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900/60'
+                  }`}
+                  title="Click to forecast O3 for this pinpoint"
+                >
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <span className="font-bold text-slate-300">O3</span>
+                    {activePollutants.o3.isSurged ? (
+                      <span className="px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 text-[9px] font-black">
+                        +{activePollutants.o3.delta}
+                      </span>
+                    ) : (
+                      <span className="text-[9px] text-slate-500">µg/m³</span>
+                    )}
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className={`text-base font-black ${activePollutants.o3.isSurged ? 'text-rose-300' : 'text-white'}`}>
+                      {activePollutants.o3.current}
+                    </span>
+                    {activePollutants.o3.isSurged && (
+                      <span className="text-[9px] text-slate-400 line-through">
+                        {activePollutants.o3.baseline}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[9px] text-slate-500 mt-0.5 flex items-center justify-between">
+                    <span>{activePollutants.o3.isSurged ? 'Surge Active 🔥' : 'Baseline Intact'}</span>
+                    <TrendingUp className="w-2.5 h-2.5 text-cyan-400 opacity-0 group-hover:opacity-100 transition" />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Weather Parameters Strip */}
+            {interpolation && (
+              <div className="space-y-1.5 pt-2 border-t border-slate-800/80">
+                <span className="text-[11px] font-semibold text-slate-400 block uppercase tracking-wider">
+                  Meteorological Covariates:
+                </span>
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Wind className="w-3.5 h-3.5 text-sky-400" /> Wind:
+                    </span>
+                    <span className="font-bold text-white font-mono">
+                      {interpolation.weather.wind_speed_mps} m/s ({interpolation.weather.wind_direction_cardinal})
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Thermometer className="w-3.5 h-3.5 text-amber-400" /> Temp:
+                    </span>
+                    <span className="font-bold text-white font-mono">
+                      {interpolation.weather.temperature_c}°C
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Droplets className="w-3.5 h-3.5 text-teal-400" /> Humidity:
+                    </span>
+                    <span className="font-bold text-white font-mono">
+                      {interpolation.weather.relative_humidity_pct}%
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-950 p-2 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <span className="text-slate-400 flex items-center gap-1">
+                      <Gauge className="w-3.5 h-3.5 text-indigo-400" /> Pressure:
+                    </span>
+                    <span className="font-bold text-white font-mono">
+                      {interpolation.weather.barometric_pressure_hpa} hPa
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* 24-Hour Forecast Action Block for Pinpointed Location */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-4 shadow-xl space-y-3">
+            <div className="flex items-start gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-500 via-teal-500 to-cyan-500 flex items-center justify-center text-white shadow-lg shadow-teal-950/40 shrink-0">
+                <TrendingUp className="w-5 h-5" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h4 className="text-sm font-bold text-white">
+                    24-Hour Telemetry Forecast (Google TimesFM)
+                  </h4>
+                  <span className="px-2 py-0.5 rounded-full bg-cyan-500/20 text-cyan-300 font-mono text-[10px] font-bold border border-cyan-500/30">
+                    Foundation Model
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Predict NAQI &amp; 6 criteria pollutants for this pinpoint conditioned on meteorological covariates (168h context, 24h horizon).
+                </p>
+              </div>
+            </div>
+
+            <button
+              onClick={() => {
+                setForecastTarget('AQI');
+                setIsForecastOpen(true);
+              }}
+              disabled={!interpolation || isLoadingInterpolation}
+              className="w-full py-2.5 px-4 bg-gradient-to-r from-emerald-600 via-teal-600 to-cyan-600 hover:from-emerald-500 hover:to-cyan-500 disabled:opacity-50 text-white rounded-xl text-xs font-bold shadow-lg shadow-teal-950/50 flex items-center justify-center gap-2 transition cursor-pointer"
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>Forecast Pinpoint Location</span>
+              <Sparkles className="w-3.5 h-3.5 text-cyan-200 ml-auto" />
+            </button>
           </div>
         </div>
       </div>

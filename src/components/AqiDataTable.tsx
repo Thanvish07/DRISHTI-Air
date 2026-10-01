@@ -205,7 +205,7 @@ export const AqiDataTable: React.FC<AqiDataTableProps> = ({ stations, onSelectSt
                         onClick={() => handleSort('aerosol_optical_depth')}
                         className="px-4 py-3 text-center cursor-pointer hover:text-white transition select-none text-sky-300"
                       >
-                        AOD (MODIS) {renderSortIcon('aerosol_optical_depth')}
+                        AOD (550nm) {renderSortIcon('aerosol_optical_depth')}
                       </th>
                     </>
                   )}

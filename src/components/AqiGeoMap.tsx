@@ -587,7 +587,7 @@ export const AqiGeoMap: React.FC<AqiGeoMapProps> = ({
 
             {/* Sources tag */}
             <div className="text-[9px] text-slate-400 mb-2.5 bg-slate-100 px-2 py-1 rounded flex items-center justify-between font-mono">
-              <span>Feeds: Ground CAAQMS • IMD • GEE MODIS</span>
+              <span>Feeds: Ground CAAQMS Telemetry</span>
               <span className="text-emerald-700 font-bold">15s Live</span>
             </div>
 

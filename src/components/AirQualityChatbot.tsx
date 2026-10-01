@@ -72,7 +72,8 @@ export const AirQualityChatbot: React.FC<AirQualityChatbotProps> = ({
   const [inputText, setInputText] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isExpanded, setIsExpanded] = useState<boolean>(true);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const isInitialMount = useRef<boolean>(true);
 
   // Initial welcome message based on mode (normal clean text without special characters like *)
   useEffect(() => {
@@ -99,9 +100,18 @@ export const AirQualityChatbot: React.FC<AirQualityChatbotProps> = ({
     }
   }, [mode, contextData]);
 
-  // Scroll to bottom on new message
+  // Scroll inner chat to bottom only when user sends message or gets a response, NEVER scrolling the window
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      return;
+    }
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTo({
+        top: messagesContainerRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
   }, [messages, isLoading]);
 
   const handleSendMessage = async (textToSend?: string) => {
@@ -230,7 +240,7 @@ export const AirQualityChatbot: React.FC<AirQualityChatbotProps> = ({
       {isExpanded && (
         <>
           {/* Messages Scroll Area */}
-          <div className="p-4 space-y-4 max-h-[460px] overflow-y-auto bg-slate-950/60 scrollbar-thin">
+          <div ref={messagesContainerRef} className="p-4 space-y-4 max-h-[460px] overflow-y-auto bg-slate-950/60 scrollbar-thin">
             {messages.map((msg) => (
               <div
                 key={msg.id}
@@ -314,8 +324,6 @@ export const AirQualityChatbot: React.FC<AirQualityChatbotProps> = ({
                 </div>
               </div>
             )}
-
-            <div ref={messagesEndRef} />
           </div>
 
           {/* Quick Prompt Chips */}

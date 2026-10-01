@@ -115,7 +115,7 @@ export const StationDetailModal: React.FC<StationDetailModalProps> = ({ station,
       label: 'Aerosol Optical Depth (AOD)',
       val: `${station.aerosol_optical_depth}`,
       icon: <Eye className="w-4 h-4 text-purple-400" />,
-      sub: 'GEE MODIS / VIIRS 550nm',
+      sub: 'Extinction index 550nm',
     },
   ];
 
